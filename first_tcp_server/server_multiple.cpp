@@ -51,6 +51,10 @@ static int32_t write_all(int fd, const char *buf, size_t n) {
 static int32_t one_request(int connfd) {
     // 4 bytes header
     char rbuf[4 + k_max_msg];
+    //errno is set to the error code if the syscall failed. 
+    //However, errno is NOT set to 0 if the syscall succeeded; 
+    //it simply keeps the previous value. That’s why the above code sets 
+    //errno = 0 before read_full() to distinguish the EOF case.
     errno = 0;
     int32_t err = read_full(connfd, rbuf, 4);
     if (err) {
@@ -118,7 +122,9 @@ int main() {
         if (connfd < 0) {
             continue;   // error
         }
-
+        //basically if we wish to server multiple requets from a user,
+        //we must know when to stop reading and how to send a protocol
+        //earlier we just sent a const size data 64 bytes
         while (true) {
             // here the server only serves one client connection at once
             int32_t err = one_request(connfd);

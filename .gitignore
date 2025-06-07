@@ -1,0 +1,53 @@
+# === Compiled object files ===
+*.o
+*.obj
+
+# === Compiled binary files ===
+*.exe
+*.out
+*.app
+a.out
+# Ignore ELF binaries and executables
+*.elf
+*.out
+*.bin
+*.exe
+a.out
+
+
+# === Precompiled Headers ===
+*.gch
+
+# === Build directories ===
+/build/
+/bin/
+/dist/
+
+# === Debug files ===
+*.log
+*.stackdump
+core
+
+# === Editor/IDE files ===
+*~
+*.swp
+*.swo
+.vscode/
+.idea/
+*.user
+*.DS_Store
+
+# === CMake ===
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# === Ignore everything except source files (optional) ===
+# Uncomment the below if you want to include ONLY source files
+
+# *
+# !*.c
+# !*.cpp
+# !*.h
+# !.gitignore
