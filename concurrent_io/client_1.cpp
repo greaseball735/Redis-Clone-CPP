@@ -118,6 +118,8 @@ int main() {
         die("connect");
     }
 
+
+    ////////////////////////////TESTING PIPELINING//////////////////////////////////////
     // multiple pipelined requests
     std::vector<std::string> query_list = {
         "hello1", "hello2", "hello3",
