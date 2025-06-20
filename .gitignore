@@ -22,7 +22,8 @@ a.out
 /build/
 /bin/
 /dist/
-
+/remove.sh
+/notes.txt
 # === Debug files ===
 *.log
 *.stackdump
