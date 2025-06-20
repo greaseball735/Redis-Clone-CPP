@@ -9,13 +9,15 @@
 // Maps a physical page
 // Fills it with zeros
 #include <stdlib.h>     // calloc(), free()
+#include <iostream>
+using namespace std;
 #include "hash.h"
 
 
 //initilization
 // n must be a power of 2
 static void h_init(Htab* htab, size_t n ){
-    assert((n > 0) && (n & n - 1) == 0);
+    assert((n > 0) && (n & (n - 1)) == 0);
     htab->tab = (HNode**)calloc( n , sizeof(HNode*));
     htab->mask = n - 1;
     htab->size = 0;
@@ -43,17 +45,17 @@ static void h_insert(Htab* htab, HNode* node){
 // the parent pointer that owns the target node,
 // which can be used to delete the target node.
 static HNode** h_lookup(Htab* htab, HNode* key, bool (*eq)(HNode* , HNode*)){
-    if(!htab->tab)return NULL;
-    size_t index = htab->mask & key->hcode;
-    HNode** node = &htab->tab[index];
-    // HNode** parent = NULL;
-    // we are returning parent of out target node.
-    for(HNode* curr = *node; curr  != NULL ; curr = curr->next){
-        //unique hcode but non unique index
-        if(curr->hcode == key->hcode && eq(curr, key)){
-            return node;
+    if (!htab->tab) {
+        return NULL;
+    }
+
+    size_t pos = key->hcode & htab->mask;
+    HNode **from = &htab->tab[pos];     // incoming pointer to the target
+    for (HNode *cur; (cur = *from) != NULL; from = &cur->next) {
+        // cout << cur->hcode << " " << key->hcode << "this is bad" << endl;
+        if (cur->hcode == key->hcode && eq(cur, key)) {
+            return from;                // may be a node, may be a slot
         }
-        node = &curr->next;
     }
     return NULL;
 }
@@ -88,9 +90,10 @@ static void hm_help_rehashing(HMAP *hmap){
             continue;
         }
         //
+        // move the first list item to the newer table
         HNode* t = h_detach(&hmap->prev, from);
         h_insert(&hmap->curr, t);
-        hmap->migrated_pos++;
+        // hmap->migrated_pos++;
         rehashed++;
         // hmap->prev.size--;
     }
@@ -168,7 +171,7 @@ HNode *hm_delete(HMAP *hmap, HNode *key, bool (*eq)(HNode *, HNode *)){
     return NULL;
     
 }
-void   hm_clear(HMAP *hmap){
+void  hm_clear(HMAP *hmap){
     free(hmap->curr.tab);
     free(hmap->prev.tab);
     *hmap = HMAP{};

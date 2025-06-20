@@ -156,7 +156,7 @@ struct Entry{
 
 // he have HNode* but we need to compare the keys 
 // hnode is always at the same offset from the start of Entry, we can use the macro:
-bool EQ(HNode* first , HNode* second){
+bool eq_f(HNode* first , HNode* second){
     Entry* f = container_of(first, Entry, hnode);
     Entry* s = container_of(second, Entry, hnode);
     return f->key == s->key;
@@ -175,12 +175,12 @@ static uint64_t str_hash(const uint8_t *data, size_t len){
 /////////////////////////////////////////////////
 
 static void do_request(vector<string>& cmd, Response& out){
-    if(cmd.size() == 2 && cmd[0] == "get"){
+    if(cmd.size() == 2 && cmd[0] == "GET"){
         Entry key;
         key.key.swap(cmd[1]);
         key.hnode.hcode = str_hash((uint8_t *)key.key.data(), key.key.size());
         // hashtable lookup
-        HNode *node = hm_lookup(&store.db, &key.hnode, &EQ);
+        HNode *node = hm_lookup(&store.db, &key.hnode, &eq_f);
         if (!node) {
             out.status = RES_NF;
             return;
@@ -190,16 +190,28 @@ static void do_request(vector<string>& cmd, Response& out){
         assert(val.size() <= k_max_msg);
         out.data.assign(val.begin(), val.end());
 
-    }else if (cmd.size() == 3 && cmd[0] == "set") {
+    }else if (cmd.size() == 3 && cmd[0] == "SET") {
         Entry key;
         key.key.swap(cmd[1]);
         key.hnode.hcode = str_hash((uint8_t *)key.key.data(), key.key.size());
         // hashtable lookup
-        HNode *node = hm_lookup(&store.db, &key.hnode, &EQ);
+        HNode *node = hm_lookup(&store.db, &key.hnode, &eq_f);
         if (!node) {
             // not found create a key value pair.
             Entry *ent = new Entry();
-            ent->key.swap(cmd[1]);
+
+            /////////STUPID BUG WARNING. SWAP ACTUALLY 
+            // Important: swap() doesn't copy or assign characters — it just swaps the internal pointers 
+            // (and size/capacity metadata) between the two strings.
+
+            // ent->key.swap(cmd[1]);
+            // This moves cmd[1] into key.key. Now cmd[1] is empty
+            // so using this doest work but using key.key works.
+            // wasted 3 FUCKING HOURS DEBUGGING THIS SHIT. WHY LORD WHY. I THOUGH SWAP just swaps?! i just heard it is fast so i used it without actually
+            // knowing how it swaps, SO HALF KNOWING IS NO KNOWING
+            
+            
+            ent->key.swap(key.key);
             ent->val.swap(cmd[2]);
             ent->hnode.hcode = key.hnode.hcode;
             hm_insert(&store.db, &ent->hnode);
@@ -207,13 +219,13 @@ static void do_request(vector<string>& cmd, Response& out){
             container_of(node, Entry, hnode)->val = cmd[2];
 
         }
-    } else if (cmd.size() == 2 && cmd[0] == "del") {
+    } else if (cmd.size() == 2 && cmd[0] == "DEL") {
          // a dummy `Entry` just for the lookup
         Entry key;
         key.key.swap(cmd[1]);
         key.hnode.hcode = str_hash((uint8_t *)key.key.data(), key.key.size());
         // hashtable delete
-        HNode *node = hm_delete(&store.db, &key.hnode, &EQ);
+        HNode *node = hm_delete(&store.db, &key.hnode, &eq_f);
         if (node) { // deallocate the pair
             delete container_of(node, Entry, hnode);
         }
