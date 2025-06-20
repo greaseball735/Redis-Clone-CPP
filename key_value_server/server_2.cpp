@@ -1,7 +1,6 @@
-//goal : basic key value store with basic redis commands
-//todo:parse the command
-//todo:process the command and generate a response
-//todo:append the response to the output buffer
+//goal : use the custome hash logic in place of std: unordered_map 
+//todo:learn, understand and implement the custome hash table
+//todo:use that in place of map.
 
 
 // stdlib
@@ -18,6 +17,7 @@
 #include <arpa/inet.h>
 #include <sys/socket.h>
 #include <netinet/ip.h>
+#include <stddef.h>
 // C++
 #include <map>
 #include <vector>
@@ -30,7 +30,11 @@
 #define RES_OK 0
 
 
-///////////////////////
+
+////////////////////////////////////
+#include "hash.h"
+
+//////////////////////////////////
 
 
 using namespace std;
@@ -120,22 +124,99 @@ struct Response{
     uint32_t status = RES_OK;
     vector<uint8_t> data;
 };
-/////currently stl map is used 
-map<string, string> store;
+/////////////////////////////////////////////////////////////////////////
+// map<string, string> store;
+static struct{
+    HMAP db;
+}store;
+// use of intrusive data structure
+// structure in data 
+// embed the HNode lpayload
 
+// NEEED NEEEEEED
+// a hash function (!obviously)
+// a equality logic.
+// data with structure in it(here HNode embeeded in it)
+
+// in memory, an Entry object looks like:
+// [ key ][ val ][ hnode ]
+struct Entry{
+    string key;
+    string val;
+    // for intrusive hashtable
+    HNode hnode;
+    // Now, each Entry is the payload, and HMap only knows about HNode 
+    // pointers, which are part of the entry
+};
+// this is the coolest sht 
+// BEHOLD THE FAMOUS POINTER WIZARD MAGIC FROM THE LINUX KERNEL
+// calculates the address of the containing structure given a pointer to one of its members.
+// char cast to interpret it as bytes now pointer arithematics works with bytes because char is one byte
+#define container_of(ptr, type, member) ((type *)((char *)(ptr) - offsetof(type, member)))
+
+// he have HNode* but we need to compare the keys 
+// hnode is always at the same offset from the start of Entry, we can use the macro:
+bool EQ(HNode* first , HNode* second){
+    Entry* f = container_of(first, Entry, hnode);
+    Entry* s = container_of(second, Entry, hnode);
+    return f->key == s->key;
+}
+
+// FNV hash
+static uint64_t str_hash(const uint8_t *data, size_t len){
+    uint32_t h = 0x811C9DC5;
+    for (size_t i = 0; i < len; i++) {
+        h = (h + data[i]) * 0x01000193;
+    }
+    return h;
+}
+
+
+/////////////////////////////////////////////////
 
 static void do_request(vector<string>& cmd, Response& out){
     if(cmd.size() == 2 && cmd[0] == "get"){
-        auto it = store.find(cmd[1]);
-        if(it == store.end()){
+        Entry key;
+        key.key.swap(cmd[1]);
+        key.hnode.hcode = str_hash((uint8_t *)key.key.data(), key.key.size());
+        // hashtable lookup
+        HNode *node = hm_lookup(&store.db, &key.hnode, &EQ);
+        if (!node) {
             out.status = RES_NF;
             return;
         }
-        out.data.assign(it->second.begin(), it->second.end());
+        // copy the value
+        const std::string &val = container_of(node, Entry, hnode)->val;
+        assert(val.size() <= k_max_msg);
+        out.data.assign(val.begin(), val.end());
+
     }else if (cmd.size() == 3 && cmd[0] == "set") {
-        store[cmd[1]].swap(cmd[2]);
+        Entry key;
+        key.key.swap(cmd[1]);
+        key.hnode.hcode = str_hash((uint8_t *)key.key.data(), key.key.size());
+        // hashtable lookup
+        HNode *node = hm_lookup(&store.db, &key.hnode, &EQ);
+        if (!node) {
+            // not found create a key value pair.
+            Entry *ent = new Entry();
+            ent->key.swap(cmd[1]);
+            ent->val.swap(cmd[2]);
+            ent->hnode.hcode = key.hnode.hcode;
+            hm_insert(&store.db, &ent->hnode);
+        }else{
+            container_of(node, Entry, hnode)->val = cmd[2];
+
+        }
     } else if (cmd.size() == 2 && cmd[0] == "del") {
-        store.erase(cmd[1]);
+         // a dummy `Entry` just for the lookup
+        Entry key;
+        key.key.swap(cmd[1]);
+        key.hnode.hcode = str_hash((uint8_t *)key.key.data(), key.key.size());
+        // hashtable delete
+        HNode *node = hm_delete(&store.db, &key.hnode, &EQ);
+        if (node) { // deallocate the pair
+            delete container_of(node, Entry, hnode);
+        }
     } else {
         out.status = RES_ERR;       // unrecognized command
     }
