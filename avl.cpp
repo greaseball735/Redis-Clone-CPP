@@ -51,8 +51,8 @@ static AVLNode* rot_right(AVLNode* node){
     left->parent = parent;
     node->parent = left;
     //update heights
-    avl_update(left);
     avl_update(node);
+    avl_update(left);
     return left;
 }
 
@@ -124,126 +124,52 @@ AVLNode *avl_fix(AVLNode *node){
 // like in bst cases, first trivial case is the node has only either left or right child. then simply remove it and update the parent pointer to point to the 
 // one targets's child.
 // second case is both left and right subtrees, child exist, in that case find successor
-// AVLNode* transplant(AVLNode *node){
-//     if(!node)return NULL;
-//     AVLNode* parent = node->parent;
-//     AVLNode* child = node->left ? node->left : node->right;
-//     if(child){
-//         child->parent = parent;
-//     }
-//     //is a root node i.e no parent
-//     if(!parent){
-//         return child;
-//     }
-
-//     AVLNode** from = parent->left == node ? &parent->left : &parent->right;
-//     *from = child;
-//     // can become unbalanced, root of this subtree is now parent
-//     // return the root of the new balanced tree after deletion.
-//     return avl_fix(parent);
-
-// }
-AVLNode* transplant(AVLNode *node) {
-    if (!node) return NULL;
-
-    AVLNode* parent = node->parent;
-    AVLNode* child = node->left ? node->left : node->right;
-
+// detach a node where 1 of its children is empty
+static AVLNode *avl_del_easy(AVLNode *node) {
+    assert(!node->left || !node->right);    // at most 1 child
+    AVLNode *child = node->left ? node->left : node->right; // can be NULL
+    AVLNode *parent = node->parent;
+    // update the child's parent pointer
     if (child) {
-        child->parent = parent;
+        child->parent = parent; // can be NULL
     }
-
+    // attach the child to the grandparent
     if (!parent) {
-        // node is root
-        return child;
+        return child;   // removing the root node
     }
-
-    if (parent->left == node) {
-        parent->left = child;
-    } else {
-        parent->right = child;
-    }
-
-    // Rebalance starting from the parent
+    AVLNode **from = parent->left == node ? &parent->left : &parent->right;
+    *from = child;
+    // rebalance the updated tree
     return avl_fix(parent);
 }
 
-
-AVLNode* avl_del(AVLNode* node) {
+// detach a node and returns the new root of the tree
+AVLNode *avl_del(AVLNode *node) {
+    // the easy case of 0 or 1 child
     if (!node->left || !node->right) {
-        // Case 1 or 2: at most one child
-        return transplant(node);
+        return avl_del_easy(node);
     }
-
-    // Case 3: two children, find successor
-    AVLNode* succ = node->right;
-    while (succ->left) {
-        succ = succ->left;
+    // find the successor
+    AVLNode *victim = node->right;
+    while (victim->left) {
+        victim = victim->left;
     }
-
-    AVLNode* balance_start;
-
-    if (succ->parent != node) {
-        // Remove successor from its current location
-        balance_start = transplant(succ);
-        succ->right = node->right;
-        if (succ->right) {
-            succ->right->parent = succ;
-        }
-    } else {
-        balance_start = succ;  // succ is immediate child
+    // detach the successor
+    AVLNode *root = avl_del_easy(victim);
+    // swap with the successor
+    *victim = *node;    // left, right, parent
+    if (victim->left) {
+        victim->left->parent = victim;
     }
-
-    succ->left = node->left;
-    if (succ->left) {
-        succ->left->parent = succ;
+    if (victim->right) {
+        victim->right->parent = victim;
     }
-
-    AVLNode* parent = node->parent;
-    succ->parent = parent;
-
-    if (!parent) {
-        // node was root
-        return avl_fix(succ);
-    } else {
-        if (parent->left == node) {
-            parent->left = succ;
-        } else {
-            parent->right = succ;
-        }
-        return avl_fix(parent);
+    // attach the successor to the parent, or update the root pointer
+    AVLNode **from = &root;
+    AVLNode *parent = node->parent;
+    if (parent) {
+        from = parent->left == node ? &parent->left : &parent->right;
     }
+    *from = victim;
+    return root;
 }
-
-
-
-// AVLNode *avl_del(AVLNode *node){
-//     if (!node->left || !node->right) {
-//         return transplant(node);
-//     }
-//     AVLNode* parent = node->parent;
-//     //find the successor
-//     AVLNode* succ = node->right;
-//     while(succ->left){
-//         succ = succ->left;
-//     }
-//     //two things 
-//     // update the parent of the node.
-//     // update what the parent node points to.
-//     AVLNode* root = transplant(succ);
-//     *succ = *node;
-//     if(succ->left){
-//         succ->left->parent = succ;
-//     }
-//     if(succ->right){
-//         succ->right->parent = succ;
-//     }
-//     AVLNode **from = &root;
-//     AVLNode *parent = node->parent;
-//     if (parent) {
-//         from = parent->left == node ? &parent->left : &parent->right;
-//     }
-//     *from = succ;
-//     return root;
-// }
-
