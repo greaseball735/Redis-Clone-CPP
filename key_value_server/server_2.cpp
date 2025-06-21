@@ -140,6 +140,8 @@ static struct{
 
 // in memory, an Entry object looks like:
 // [ key ][ val ][ hnode ]
+// Note that the key doesn’t need to be an Entry, the key can be other types that embed an HNode, as long
+//  as you update entry_eq() accordingly. Right now Entry is just a KV pair
 struct Entry{
     string key;
     string val;

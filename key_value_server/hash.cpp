@@ -16,6 +16,9 @@ using namespace std;
 
 //initilization
 // n must be a power of 2
+// hash(key) % N maps a hash value to a slot. Modulo or division are slow CPU operations, so it’s 
+// common to use powers of 2 sizes. Modulo by a power of 2 is just taking the lower bits, so it can 
+// be done by a fast bitwise and: hash(key) & (N-1).
 static void h_init(Htab* htab, size_t n ){
     assert((n > 0) && (n & (n - 1)) == 0);
     htab->tab = (HNode**)calloc( n , sizeof(HNode*));
@@ -24,6 +27,8 @@ static void h_init(Htab* htab, size_t n ){
 }
 
 //hashtable insertion
+// New nodes are inserted at the front, so insertion is O(1) in the worst case. Being intrusive means 
+// that there’s no allocation in the data structure code, unlike std::list.
 static void h_insert(Htab* htab, HNode* node){
     //instead of modulo
     //mask is for eg if n = 16, 1111
