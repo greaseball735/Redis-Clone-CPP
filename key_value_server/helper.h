@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stddef.h>
 #include <math.h> 
+#include <string>
 
 // intrusive data structure
 // this is the coolest sht 

@@ -33,38 +33,38 @@
 // the data is stored in ZNode. with score, name, len and avlnode information.
 
 // the hash map here maps keys to their corresponding ZNode
-struct ZSet{
-    AVLNode *root = NULL;
-    //name to score map
-    HMAP hmap;
-};
+// struct ZSet{
+//     AVLNode *root = NULL;
+//     //name to score map
+//     HMAP hmap;
+// };
 //intrusive
 // data contains the links or nodes (like pointers for tree or list).
 // The data is aware of its participation in the structure.
 // No separate allocation of node objects — only the data is allocated, and it embeds the linking structure.
 
 // these nodes are managed by Zset
-struct ZNode {
-    //ZNode contains AVLNode tree and HNode hmap directly inside itsel
-    // There is one object (ZNode) which is inserted into two data structures: an AVL tree and a hash map.
-    // These structures don’t store ZNode* as generic values — instead, they operate on tree and hmap, and later convert back to ZNode*.
-    // You don’t allocate AVLNode or HNode separately.
-// You get better cache locality, fewer allocations, and less memory overhead
+// struct ZNode {
+//     //ZNode contains AVLNode tree and HNode hmap directly inside itsel
+//     // There is one object (ZNode) which is inserted into two data structures: an AVL tree and a hash map.
+//     // These structures don’t store ZNode* as generic values — instead, they operate on tree and hmap, and later convert back to ZNode*.
+//     // You don’t allocate AVLNode or HNode separately.
+// // You get better cache locality, fewer allocations, and less memory overhead
     
 
-    //data strucutre nodes
-    AVLNode tree;
-    HNode hmap;
+//     //data strucutre nodes
+//     AVLNode tree;
+//     HNode hmap;
 
-    //data
-    double score;
-    size_t len;
-    char name[0];
-    // flexible array memeber, we can extend and allocate more memory at the end of the struct 
+//     //data
+//     double score;
+//     size_t len;
+//     char name[0];
+//     // flexible array memeber, we can extend and allocate more memory at the end of the struct 
 
 
 
-};
+// };
 // helper struct
 // i dunno this seems unnecssary. but has to store all this info somewhere.
 // hnode only contains next and hashkey
@@ -237,4 +237,21 @@ ZNode* zset_search(ZSet* zset, double score, const char *name, size_t len){
 ZNode *znode_offset(ZNode *node, int64_t offset) {
     AVLNode *tnode = node ? avl_offset(&node->tree, offset) : NULL;
     return tnode ? container_of(tnode, ZNode, tree) : NULL;
+}
+
+//free every node
+static void tree_dispose(AVLNode *node) {
+    if (!node) {
+        return;
+    }
+    tree_dispose(node->left);
+    tree_dispose(node->right);
+    znode_del(container_of(node, ZNode, tree));
+}
+
+// destroy the zset
+void zset_clear(ZSet *zset) {
+    hm_clear(&zset->hmap);
+    tree_dispose(zset->root);
+    zset->root = NULL;
 }

@@ -242,6 +242,10 @@ static void entry_del(Entry *ent) {
     delete ent;
 }
 
+struct LookupKey {
+    struct HNode node;  // hashtable node
+    string key;
+};
 //////////////////////////////////////////////////
 // equality comparison for the top-level hashstable
 static bool eq_f(HNode *node, HNode *key) {
@@ -275,10 +279,6 @@ static struct {
 
 
 
-struct LookupKey {
-    struct HNode node;  // hashtable node
-    string key;
-};
 
 // ZADD KEY SCORE NAME
 static void do_add(vector<string>& cmd, Buffer &out){
@@ -388,15 +388,14 @@ static void do_zquery(vector<string>& cmd, Buffer& out){
 
     //iterate limit elements
     //out them to an array, array length not known so similar to response start end, make array start end function
-    size_t ctx = arr_res_start(out);
     
-    arr_res_end(out, ctx, (uint32_t)n);
 
 }
 
 /////////////////////////////////////////////////
 
 static void do_request(vector<string>& cmd, Buffer& out){
+    cout << cmd.size() << " " << cmd[0] << " " << "asdfasdfds" << endl;
     if(cmd.size() == 2 && cmd[0] == "GET"){
         LookupKey key;
         key.key.swap(cmd[1]);
@@ -465,11 +464,11 @@ static void do_request(vector<string>& cmd, Buffer& out){
     } else if(cmd.size() == 1 && cmd[0] == "KEYS"){
         do_keys(out);
     
-    }else if(cmd.size() == 4 && cmd[0] == "ZADD"){
+    }else if(cmd.size() == 4 && cmd[0] == "zadd"){
         do_add(cmd, out);
     }
     else {
-        out_err(out, ERR_UNKNOWN, "unknown command");      // unrecognized command
+        out_err(out, ERR_UNKNOWN, "unknown commandd");      // unrecognized command
     }
 }
 
