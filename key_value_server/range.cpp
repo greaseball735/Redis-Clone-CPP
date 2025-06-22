@@ -82,6 +82,25 @@ static bool hcmp(HNode *node, HNode *key) {
 
 //returns 1 if left < right
 //else 0
+//fuck this shit
+//need to make another fucking comparision. comparision with fucking score 
+// ??? compariosn k liye bc ek naya struck tmc ]asdfk;asdf
+static uint8_t z_comp_2(AVLNode* target , double score, size_t len, const char* name){
+    ZNode *z  = container_of(target , ZNode , tree);
+    if(z->score != score){
+        return z->score < score;
+    }
+    int rv = memcmp(z->name, name, std::min(z->len, len));
+    if (rv != 0) {
+        return rv < 0;
+    }
+    if(z->len == len){
+        return 2;
+    }else{
+        return z->len < len;
+
+    }
+}
 static bool z_comp(AVLNode* l, AVLNode* r){
     //made my life difficult by going intrusive.
     ZNode* z1 = container_of(l, ZNode, tree);
@@ -168,4 +187,27 @@ void zset_delete(ZSet *zset, ZNode *node){
 }
 
 
+//RANGE QUERY
+//to handle this query
+// The range query command: ZQUERY key score name offset limit.
+// Seek to the first pair where pair >= (score, name).
+// Walk to the n-th successor/predecessor (offset).
+// Iterate and output.
 
+ZNode* zset_search(ZSet* zset, double score, const char *name, size_t len){
+    AVLNode *found = NULL;
+    AVLNode *node = zset->root;
+    while(1){
+        uint8_t c = z_comp_2(node, score, len, name);
+        if(c == 1){
+            node = node->right; // node < key
+        }else if(c == 0){
+            node = node->left;
+        }else{
+            found = node;
+            break;
+        }
+
+    }
+    return found ? container_of(found, ZNode, tree) : NULL;
+}
