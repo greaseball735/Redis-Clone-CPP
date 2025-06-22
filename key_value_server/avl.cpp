@@ -49,6 +49,7 @@ static AVLNode* rot_right(AVLNode* node){
         ll->parent = node;
     }
     left->parent = parent;
+    left->right = node;
     node->parent = left;
     //update heights
     avl_update(node);
@@ -176,6 +177,8 @@ AVLNode *avl_del(AVLNode *node) {
 
 static AVLNode* successor(AVLNode* node){
     //two cases. if right subtree exist. find left most in the right subtree
+    if (!node) return NULL;
+
     if(node->right){
         node = node->right;
         while(node->left)node = node->left;
@@ -192,6 +195,7 @@ static AVLNode* successor(AVLNode* node){
     //find 
 }
 static AVLNode* predessor(AVLNode* node){
+    if (!node) return NULL;
     //two cases. if right subtree exist. find left most in the right subtree
     if(node->left){
         node = node->left;
@@ -211,6 +215,9 @@ static AVLNode* predessor(AVLNode* node){
 
 //the naive way
 AVLNode *avl_offset(AVLNode *node, int64_t offset){
+    if (!node) return NULL;
+    if (offset == 0) return node;
+
     while(offset > 0 && node){
         offset--;
         node = successor(node);
@@ -224,4 +231,5 @@ AVLNode *avl_offset(AVLNode *node, int64_t offset){
 
 
 }
+
 

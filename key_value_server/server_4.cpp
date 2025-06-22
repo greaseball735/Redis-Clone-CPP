@@ -140,6 +140,7 @@ static int32_t parse_request(const uint8_t* data, size_t size, vector<string>& o
 // error code for TAG_ERR
 enum {
     ERR_UNKNOWN = 1,    // unknown command
+    ERR_NOT_FOUND = 5,
     ERR_TOO_BIG = 2,    // response too big
     ERR_BAD_ARGUMENT = 3,
     ERR_FUCK_YOU = 9,
@@ -392,10 +393,70 @@ static void do_zquery(vector<string>& cmd, Buffer& out){
 
 }
 
+static void do_zscore(vector<string>& cmd, Buffer& out){
+    //this is all abstracted in the zset_except function
+    // LookupKey key;
+    // key.key = cmd[1];
+    // key.node.next = NULL;
+    // key.node.hcode = str_hash((uint8_t*)key.key.data(), key.key.size());
+    // HNode* node = hm_lookup(&store.db, &key.node, &eq_f);
+    // if(node){
+    //     Entry* et = container_of(node, Entry, node);
+    //     if(et->type != T_ZSET){
+    //         out_err(out, ERR_BAD_TYPE, "expecting zset");
+    //     }
+    // }else{
+    //     out_err(out, ERR_NOT_FOUND, "entry with given key not found");
+    //     return;
+    // }
+     ZSet *zset = expect_zset(cmd[1]);
+    if (!zset) {
+        return out_err(out, ERR_BAD_TYPE, "expect zset");
+    }
+
+    const std::string &name = cmd[2];
+    ZNode *znode = zset_lookup(zset, name.data(), name.size());
+    return znode ? out_dbl(out, znode->score) : out_nil(out);
+
+    
+}
+
+static void do_zrank(vector<string>& cmd, Buffer& out) {
+    ZSet *zset = expect_zset(cmd[1]);
+    if (!zset) {
+        return out_err(out, ERR_BAD_TYPE, "expect zset");
+    }
+
+    int64_t rank = 0;
+    if (!str2int(cmd[2], rank)) {
+        return out_err(out, ERR_BAD_ARGUMENT, "expected integer");
+    }
+
+    AVLNode* root = zset->root;
+    if (!root) {
+        return out_err(out, ERR_NOT_FOUND, "zset is empty");
+    }
+
+    // Ensure rank is within bounds (0 <= rank < tree size)
+    // if (rank < 0 || rank >= zset->tree_size) {
+    //     return out_err(out, ERR_OUT_OF_RANGE, "rank out of bounds");
+    // }
+
+    // Get the node at the given rank
+    AVLNode* node = avl_offset(root, rank);
+    if (!node) {
+        return out_err(out, ERR_NOT_FOUND, "failed to find node");
+    }
+
+    // Extract the ZNode and return its name
+    ZNode* z = container_of(node, ZNode, tree);
+    return out_str(out, z->name, z->len);
+}
+
 /////////////////////////////////////////////////
 
 static void do_request(vector<string>& cmd, Buffer& out){
-    cout << cmd.size() << " " << cmd[0] << " " << "asdfasdfds" << endl;
+    // cout << cmd.size() << " " << cmd[0] << " " << "asdfasdfds" << endl;
     if(cmd.size() == 2 && cmd[0] == "GET"){
         LookupKey key;
         key.key.swap(cmd[1]);
@@ -464,10 +525,14 @@ static void do_request(vector<string>& cmd, Buffer& out){
     } else if(cmd.size() == 1 && cmd[0] == "KEYS"){
         do_keys(out);
     
-    }else if(cmd.size() == 4 && cmd[0] == "zadd"){
+    }else if(cmd.size() == 4 && cmd[0] == "ZADD"){
         do_add(cmd, out);
-    }
-    else {
+    }else if(cmd.size() == 3 && cmd[0] == "ZSCORE"){
+        do_zscore(cmd, out);
+    }else if(cmd.size() == 3 && cmd[0] == "ZRANK"){
+        
+        do_zrank(cmd, out);
+    }else {
         out_err(out, ERR_UNKNOWN, "unknown commandd");      // unrecognized command
     }
 }
