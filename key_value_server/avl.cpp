@@ -176,7 +176,53 @@ AVLNode *avl_del(AVLNode *node) {
 
 
 
+//the naive way
 AVLNode *avl_offset(AVLNode *node, int64_t offset){
+    while(offset > 0 && node){
+        offset--;
+        node = successor(node);
+    }
 
-    
+    while(offset < 0 && node){
+        offset++;
+        node = predessor(node);
+    }
+    return node;
+
+
+}
+
+static AVLNode* successor(AVLNode* node){
+    //two cases. if right subtree exist. find left most in the right subtree
+    if(node->right){
+        node = node->right;
+        while(node->left)node = node->left;
+        return node;
+    }
+    AVLNode* parent = node->parent;
+    while(parent && node == parent->right){
+        node = parent;
+        parent = parent->parent;
+    }
+    return parent;
+
+    //else if not exist then 
+    //find 
+}
+static AVLNode* predessor(AVLNode* node){
+    //two cases. if right subtree exist. find left most in the right subtree
+    if(node->left){
+        node = node->left;
+        while(node->right)node = node->right;
+        return node;
+    }
+    AVLNode* parent = node->parent;
+    while(parent && node == parent->left){
+        node = parent;
+        parent = parent->parent;
+    }
+    return parent;
+
+    //else if not exist then 
+    //find 
 }

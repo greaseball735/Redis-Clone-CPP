@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-
+#include <math.h> 
 
 // intrusive data structure
 // this is the coolest sht 
@@ -19,4 +19,16 @@ static uint64_t str_hash(const uint8_t *data, size_t len){
         h = (h + data[i]) * 0x01000193;
     }
     return h;
+}
+
+static bool str2dbl(const std::string &s, double &out) {
+    char *endp = NULL;
+    out = strtod(s.c_str(), &endp);
+    return endp == s.c_str() + s.size() && !isnan(out);
+}
+
+static bool str2int(const std::string &s, int64_t &out) {
+    char *endp = NULL;
+    out = strtoll(s.c_str(), &endp, 10);
+    return endp == s.c_str() + s.size();
 }

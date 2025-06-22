@@ -141,6 +141,9 @@ static int32_t parse_request(const uint8_t* data, size_t size, vector<string>& o
 enum {
     ERR_UNKNOWN = 1,    // unknown command
     ERR_TOO_BIG = 2,    // response too big
+    ERR_BAD_ARGUMENT = 3,
+    ERR_FUCK_YOU = 9,
+    ERR_BAD_TYPE = 4,
 };
 
 // data types of serialized data
@@ -209,7 +212,7 @@ enum {
 //common interface.
 //strings use Entry.str
 //sorted sets use Entry.zset
-//members in the set are stored as ZNode(with score + name which is intrusive i.e contains hnode and avlnode)
+//members in the set are stored as ZNode(with score + name which is intrusive i.e contains node and avlnode)
 //now fast access by name in set ZSet.hmap, ZSet.root fast rank/range queries 
 struct Entry{
     HNode node;
@@ -224,17 +227,30 @@ struct Entry{
 };
 
 
-
-
-// he have HNode* but we need to compare the keys 
-// hnode is always at the same offset from the start of Entry, we can use the macro:
-bool eq_f(HNode* first , HNode* second){
-    Entry* f = container_of(first, Entry, hnode);
-    Entry* s = container_of(second, Entry, hnode);
-    return f->key == s->key;
+/////////////////////////////////////////////
+// handle delete new according to the type need differnte function
+static Entry *entry_new(uint32_t type) {
+    Entry *ent = new Entry();
+    ent->type = type;
+    return ent;
 }
 
-// FNV hash
+static void entry_del(Entry *ent) {
+    if (ent->type == T_ZSET) {
+        zset_clear(&ent->zset);
+    }
+    delete ent;
+}
+
+//////////////////////////////////////////////////
+// equality comparison for the top-level hashstable
+static bool eq_f(HNode *node, HNode *key) {
+    struct Entry *ent = container_of(node, struct Entry, node);
+    struct LookupKey *keydata = container_of(key, struct LookupKey, node);
+    return ent->key == keydata->key;
+}
+
+
 
 
 ///A void* is a generic pointer — it can hold the address of any data type.
@@ -244,11 +260,59 @@ bool eq_f(HNode* first , HNode* second){
 static bool node_callback(HNode* node, void* arg){
     // no copyying
     Buffer& out = *(Buffer *)arg;
-    string &s = container_of(node, Entry, hnode)->key;
+    string &s = container_of(node, Entry, node)->key;
     // gets the s.data pointer char to the first char of the string
     out_str(out, s.data(), s.size());
     return true;
 }
+//helper
+
+// global states
+// no matter the query type every shit key value pair is stored in here
+static struct {
+    HMAP db;    // top-level hashtable
+} store;
+
+
+
+struct LookupKey {
+    struct HNode node;  // hashtable node
+    string key;
+};
+
+// ZADD KEY SCORE NAME
+static void do_add(vector<string>& cmd, Buffer &out){
+    double score = 0;
+    if(!str2dbl(cmd[2], score)){
+        return out_err(out, ERR_BAD_ARGUMENT, "excepting a float");
+    }
+    LookupKey key;
+    key.key.swap(cmd[1]);
+    key.node.next = NULL;
+    key.node.hcode = str_hash((uint8_t*)key.key.data(), key.key.size());
+    //check if already present
+    HNode *node = hm_lookup(&store.db, &key.node, &eq_f);
+    Entry* ent = NULL;
+    if(node){
+        ent = container_of(node, Entry, node);
+        if(ent->type != T_ZSET){
+            return out_err(out, ERR_BAD_ARGUMENT, "expecting set, key already present in HashMap");
+        }
+        //if a t_zset then update the value
+    }else{
+        //insert into hashmap global one
+       ent = entry_new(T_ZSET);
+        ent->key.swap(key.key);
+        ent->node.hcode = key.node.hcode;
+        hm_insert(&store.db, &ent->node);
+    }
+    const string &name = cmd[3];
+    bool added = zset_insert(&ent->zset, name.data(), name.size(), score );
+    return out_int(out, (int64_t)added);
+
+    
+}
+
 static void do_keys(Buffer& out){
     out_arr(out, (uint32_t)hm_size(&store.db));
     hm_foreach(&store.db, &node_callback, (void*)&out);
@@ -264,6 +328,18 @@ static void arr_res_end(Buffer& out, size_t ctx , uint32_t siz){
     assert(out[ctx - 1] == TAG_ARR);
     memcpy(&out[ctx], &siz, 4);
 }
+static const ZSet k_empty_zset;
+static ZSet *expect_zset(std::string &s) {
+    LookupKey key;
+    key.key.swap(s);
+    key.node.hcode = str_hash((uint8_t *)key.key.data(), key.key.size());
+    HNode *hnode = hm_lookup(&store.db, &key.node, &eq_f);
+    if (!hnode) {   // a non-existent key is treated as an empty zset
+        return (ZSet *)&k_empty_zset;
+    }
+    Entry *ent = container_of(hnode, Entry, node);
+    return ent->type == T_ZSET ? &ent->zset : NULL;
+}
 
 static void do_zquery(vector<string>& cmd, Buffer& out){
     //parse the request.
@@ -272,7 +348,40 @@ static void do_zquery(vector<string>& cmd, Buffer& out){
     
 
     //seek/search the given node
-    ZNode* node = zset_search(zset, score, name, len);
+    // parse args
+    double score = 0;
+    if (!str2dbl(cmd[2], score)) {
+        return out_err(out, ERR_BAD_ARGUMENT, "expect fp number");
+    }
+    const std::string &name = cmd[3];
+    int64_t offset = 0, limit = 0;
+    if (!str2int(cmd[4], offset) || !str2int(cmd[5], limit)) {
+        return out_err(out, ERR_BAD_ARGUMENT, "expect int");
+    }
+
+    // get the zset
+    ZSet *zset = expect_zset(cmd[1]);
+    if (!zset) {
+        return out_err(out, ERR_BAD_TYPE, "expect zset");
+    }
+
+    // seek to the key
+    if (limit <= 0) {
+        return out_arr(out, 0);
+    }
+    ZNode *znode = zset_search(zset, score, name.data(), name.size());
+    znode = znode_offset(znode, offset);
+
+    // output
+    size_t ctx = arr_res_start(out);
+    int64_t n = 0;
+    while (znode && n < limit) {
+        out_str(out, znode->name, znode->len);
+        out_dbl(out, znode->score);
+        znode = znode_offset(znode, +1);
+        n += 2;
+    }
+    arr_res_end(out, ctx, (uint32_t)n);
     //go to offset
 
     
@@ -281,7 +390,7 @@ static void do_zquery(vector<string>& cmd, Buffer& out){
     //out them to an array, array length not known so similar to response start end, make array start end function
     size_t ctx = arr_res_start(out);
     
-    arr_res_end(out);
+    arr_res_end(out, ctx, (uint32_t)n);
 
 }
 
@@ -289,29 +398,32 @@ static void do_zquery(vector<string>& cmd, Buffer& out){
 
 static void do_request(vector<string>& cmd, Buffer& out){
     if(cmd.size() == 2 && cmd[0] == "GET"){
-        Entry key;
+        LookupKey key;
         key.key.swap(cmd[1]);
-        key.hnode.hcode = str_hash((uint8_t *)key.key.data(), key.key.size());
+        key.node.hcode = str_hash((uint8_t *)key.key.data(), key.key.size());
         // hashtable lookup
-        HNode *node = hm_lookup(&store.db, &key.hnode, &eq_f);
+        HNode *node = hm_lookup(&store.db, &key.node, &eq_f);
         if (!node) {
             out_nil(out);
             return;
         }
         // copy the value
-        const std::string &val = container_of(node, Entry, hnode)->val;
-        assert(val.size() <= k_max_msg);
-        out_str(out, val.data(), val.size());
+        Entry* e = container_of(node, Entry, node);
+        // assert(val.size() <= k_max_msg);
+        if(e->type != T_STR){
+            return out_err(out, ERR_BAD_TYPE, "not a string value");
+        }
+        return out_str(out, e->value.data(), e->value.size());
 
     }else if (cmd.size() == 3 && cmd[0] == "SET") {
-        Entry key;
+        LookupKey key;
         key.key.swap(cmd[1]);
-        key.hnode.hcode = str_hash((uint8_t *)key.key.data(), key.key.size());
+        key.node.hcode = str_hash((uint8_t *)key.key.data(), key.key.size());
         // hashtable lookup
-        HNode *node = hm_lookup(&store.db, &key.hnode, &eq_f);
+        HNode *node = hm_lookup(&store.db, &key.node, &eq_f);
         if (!node) {
             // not found create a key value pair.
-            Entry *ent = new Entry();
+            Entry *ent = entry_new(T_STR);
 
             /////////STUPID BUG WARNING. SWAP ACTUALLY 
             // Important: swap() doesn't copy or assign characters — it just swaps the internal pointers 
@@ -325,28 +437,36 @@ static void do_request(vector<string>& cmd, Buffer& out){
             
             
             ent->key.swap(key.key);
-            ent->val.swap(cmd[2]);
-            ent->hnode.hcode = key.hnode.hcode;
-            hm_insert(&store.db, &ent->hnode);
+            ent->value.swap(cmd[2]);
+            ent->node.hcode = key.node.hcode;
+            hm_insert(&store.db, &ent->node);
             out_nil(out);
         }else{
-            container_of(node, Entry, hnode)->val = cmd[2];
-            out_nil(out);
+            // found, update the value
+        Entry *ent = container_of(node, Entry, node);
+        if (ent->type != T_STR) {
+            return out_err(out, ERR_BAD_TYPE, "a non-string value exists");
+        }
+        ent->value.swap(cmd[2]);
+        out_nil(out);
 
         }
     } else if (cmd.size() == 2 && cmd[0] == "DEL") {
          // a dummy `Entry` just for the lookup
-        Entry key;
+        LookupKey key;
         key.key.swap(cmd[1]);
-        key.hnode.hcode = str_hash((uint8_t *)key.key.data(), key.key.size());
+        key.node.hcode = str_hash((uint8_t *)key.key.data(), key.key.size());
         // hashtable delete
-        HNode *node = hm_delete(&store.db, &key.hnode, &eq_f);
+        HNode *node = hm_delete(&store.db, &key.node, &eq_f);
         if (node) { // deallocate the pair
-            delete container_of(node, Entry, hnode);
+            entry_del(container_of(node, Entry, node));
         }
+        return out_int(out, node ? 1 : 0);
     } else if(cmd.size() == 1 && cmd[0] == "KEYS"){
         do_keys(out);
     
+    }else if(cmd.size() == 4 && cmd[0] == "ZADD"){
+        do_add(cmd, out);
     }
     else {
         out_err(out, ERR_UNKNOWN, "unknown command");      // unrecognized command

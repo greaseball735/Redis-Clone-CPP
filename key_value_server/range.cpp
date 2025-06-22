@@ -11,10 +11,31 @@
 // Efficient support for ranked/range access by score → AVL Tree
 // Efficient lookup by name → Hash Table
 
+//THE DESIGN
+//earlier, one entry, one global hashmap. key maps to value. simple.
 
+//NOW we can have things like
+// key1 - {(name1, score1) , (name2, score2), ..... }
+// a key associated with a set. this set is ordered according to score and then name value,score is a double
+// how to design this ??
 
+// so basically entry can now have 2 fields a string or a zset as value.
+// ok so add these fields in Entry, only one of them is active at a time.
+
+// Now how to implement this set ?
+// the data structure used is a avl tree. ok fine then what ? how to orgnaize it.
+// ok so each entry is associated with a key.
+// a key can be associated with a set.
+// a set is represented as a tree AND  a hashmap to query by name, as name is unique.
+// so define the ZSet, embed, a hashmap and a root of the set in it.
+
+// then what ?? we are using intrusive data strucutre. so embed the AVLNode in the data
+// the data is stored in ZNode. with score, name, len and avlnode information.
+
+// the hash map here maps keys to their corresponding ZNode
 struct ZSet{
     AVLNode *root = NULL;
+    //name to score map
     HMAP hmap;
 };
 //intrusive
@@ -101,6 +122,7 @@ static uint8_t z_comp_2(AVLNode* target , double score, size_t len, const char* 
 
     }
 }
+
 static bool z_comp(AVLNode* l, AVLNode* r){
     //made my life difficult by going intrusive.
     ZNode* z1 = container_of(l, ZNode, tree);
@@ -210,4 +232,9 @@ ZNode* zset_search(ZSet* zset, double score, const char *name, size_t len){
 
     }
     return found ? container_of(found, ZNode, tree) : NULL;
+}
+
+ZNode *znode_offset(ZNode *node, int64_t offset) {
+    AVLNode *tnode = node ? avl_offset(&node->tree, offset) : NULL;
+    return tnode ? container_of(tnode, ZNode, tree) : NULL;
 }
