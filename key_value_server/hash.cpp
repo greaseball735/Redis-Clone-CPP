@@ -187,6 +187,23 @@ size_t hm_size(HMAP *hmap){
 }
 
 
+static bool h_foreach(Htab *htab, bool (*f)(HNode *, void *), void *arg){
+    for(size_t i = 0; htab->mask != 0 && i <= htab->mask;i++){
+        for(HNode* node = htab->tab[i]; node != NULL; node = node->next){
+            if(!f(node, arg)){
+                return false;
+            }
+        }
+    }
+    return true;
+
+
+}
+
+void hm_foreach(HMAP *hmap, bool (*f)(HNode *, void *), void *arg) {
+    h_foreach(&hmap->curr, f, arg) && h_foreach(&hmap->prev, f, arg);
+}
+
 
 
 

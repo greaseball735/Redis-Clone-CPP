@@ -90,3 +90,4 @@ HNode *hm_delete(HMAP *hmap, HNode *key, bool (*eq)(HNode *, HNode *));
 void   hm_clear(HMAP *hmap);
 size_t hm_size(HMAP *hmap);
 
+void  hm_foreach(HMAP *hmap, bool (*f)(HNode *, void *), void *arg);
