@@ -452,6 +452,21 @@ static void do_zrank(vector<string>& cmd, Buffer& out) {
     ZNode* z = container_of(node, ZNode, tree);
     return out_str(out, z->name, z->len);
 }
+// zrem zset name
+static void do_zrem(std::vector<std::string> &cmd, Buffer &out) {
+    ZSet *zset = expect_zset(cmd[1]);
+    if (!zset) {
+        return out_err(out, ERR_BAD_TYPE, "expect zset");
+    }
+
+    const std::string &name = cmd[2];
+    ZNode *znode = zset_lookup(zset, name.data(), name.size());
+    if (znode) {
+        //first remove from zset hashmap then remove from avl tree
+        zset_delete(zset, znode);
+    }
+    return out_int(out, znode ? 1 : 0);
+}
 
 /////////////////////////////////////////////////
 
@@ -533,6 +548,8 @@ static void do_request(vector<string>& cmd, Buffer& out){
         do_zrank(cmd, out);
     }else if(cmd.size() == 6 && cmd[0] == "ZQUERY"){
         do_zquery(cmd, out);
+    }else if(cmd.size() == 3 && cmd[0] == "ZREM"){
+        do_zrem(cmd, out);
     }else {
         out_err(out, ERR_UNKNOWN, "unknown commandd");      // unrecognized command
     }
