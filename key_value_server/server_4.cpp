@@ -204,7 +204,7 @@ static void out_arr(Buffer &out, uint32_t n) {
 
 
 struct ZSet{
-    AVLNode *node = NULL;
+    AVLNode *root = NULL;
     HMAP hmap;
 };
 //intrusive
@@ -302,9 +302,41 @@ static bool hcmp(HNode *node, HNode *key) {
     return 0 == memcmp(znode->name, hkey->name, znode->len);
 }
 
-bool zset_insert(ZSet *zset, const char *name, size_t len, double score){
+//returns 1 if left < right
+//else 0
+static bool z_comp(AVLNode* l, AVLNode* r){
+    //made my life difficult by going intrusive.
+    ZNode* z1 = container_of(l, ZNode, tree);
+    ZNode* z2 = container_of(r, ZNode, tree);
+    if(z1->score != z2->score){
+        return z1->score < z2->score;
+    }
+    // order by score then order by name
+    int rv = memcmp(z1->name, z2->name, min(z1->len, z2->len));
+    if(rv == 0){
+        return (z1->len < z2->len);
+    }else{
+        return rv < 0;
+    }
+
 
 }
+static void tree_insert(ZSet* zset, ZNode* node){
+    AVLNode* parent = NULL;
+    AVLNode** from = &zset->root;
+    while(*from){
+        parent = *from;
+        from = z_comp(&node->tree, parent) ? &parent->left : &parent->right;
+        //has to compare score
+    }
+    //node to be inserted
+    *from = &node->tree;
+    node->tree.parent = parent;
+    zset->root = avl_fix(&node->tree);
+
+}
+
+
 ZNode *zset_lookup(ZSet *zset, const char *name, size_t len){
     //simple key value lookup   
     // if (!zset->tree) {
@@ -316,8 +348,43 @@ ZNode *zset_lookup(ZSet *zset, const char *name, size_t len){
     key.len = len;
     HNode *found = hm_lookup(&zset->hmap, &key.node, &hcmp);
     return found ? container_of(found, ZNode, hmap) : NULL;
+
+}
+static void zset_update(ZSet *zset, ZNode* node, double score){
+     // detach the tree node
+    zset->root = avl_del(&node->tree);
+    avl_init(&node->tree);
+    // reinsert the tree node
+    node->score = score;
+    tree_insert(zset, node);
+}
+bool zset_insert(ZSet *zset, const char *name, size_t len, double score){
+    if(ZNode* node = zset_lookup(zset, name, len)){
+        zset_update(zset, node , score);
+        return false;
+    }
+    ZNode* node = znode_new(score, len ,name);
+    hm_insert(&zset->hmap, &node->hmap);
+    tree_insert(zset, node);
+    return true;
+
+    //check if tuple pair, already exist
+    // if not then first insert into hash map 
+    // then insert into avl tree
 }
 void zset_delete(ZSet *zset, ZNode *node){
+    // remove from the hashtable
+    HKey key;
+    key.node.hcode = node->hmap.hcode;
+    key.name = node->name;
+    key.len = node->len;
+    HNode *found = hm_delete(&zset->hmap, &key.node, &hcmp);
+    assert(found);
+    // remove from the tree
+    zset->root = avl_del(&node->tree);
+    // deallocate the node
+    znode_del(node);
+
 
 }
 
