@@ -47,6 +47,12 @@ This project is a minimal, high-performance, Redis-like in-memory key-value data
 
 ## Internal Design
 
+### Custom intrusive HashTable with progressive rehashing.
+- The implementation beats STL map and unordered_map on insert time.
+- ![Figure_1](https://github.com/user-attachments/assets/7dc85f66-6234-41b5-a771-43459ca7d083)
+- But Seems to underperform in lookups for some reason, i might try to improve it.
+
+
 ### Data Model
 
 - `Entry` objects are stored in a top-level hashtable (`store.db`)
