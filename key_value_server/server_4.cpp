@@ -370,7 +370,7 @@ static void do_zquery(vector<string>& cmd, Buffer& out){
     if (limit <= 0) {
         return out_arr(out, 0);
     }
-    ZNode *znode = zset_search(zset, score, name.data(), name.size());
+    ZNode *znode = zset_ceil(zset, score, name.data(), name.size());
     znode = znode_offset(znode, offset);
 
     // output
@@ -530,8 +530,9 @@ static void do_request(vector<string>& cmd, Buffer& out){
     }else if(cmd.size() == 3 && cmd[0] == "ZSCORE"){
         do_zscore(cmd, out);
     }else if(cmd.size() == 3 && cmd[0] == "ZRANK"){
-        
         do_zrank(cmd, out);
+    }else if(cmd.size() == 6 && cmd[0] == "ZQUERY"){
+        do_zquery(cmd, out);
     }else {
         out_err(out, ERR_UNKNOWN, "unknown commandd");      // unrecognized command
     }

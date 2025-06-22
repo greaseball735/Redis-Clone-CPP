@@ -216,14 +216,15 @@ void zset_delete(ZSet *zset, ZNode *node){
 // Walk to the n-th successor/predecessor (offset).
 // Iterate and output.
 
-ZNode* zset_search(ZSet* zset, double score, const char *name, size_t len){
+ZNode* zset_ceil(ZSet* zset, double score, const char *name, size_t len){
     AVLNode *found = NULL;
     AVLNode *node = zset->root;
-    while(1){
+    while(node){
         uint8_t c = z_comp_2(node, score, len, name);
         if(c == 1){
             node = node->right; // node < key
         }else if(c == 0){
+            found = node;
             node = node->left;
         }else{
             found = node;
