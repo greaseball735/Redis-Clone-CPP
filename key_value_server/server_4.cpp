@@ -255,7 +255,35 @@ static void do_keys(Buffer& out){
 
 }
 
+static size_t arr_res_start(Buffer& out){
+    out.push_back(TAG_ARR);
+    buf_append_u32(out, 0); //later filled by end, size not known
+    return out.size() - 4;
+}
+static void arr_res_end(Buffer& out, size_t ctx , uint32_t siz){
+    assert(out[ctx - 1] == TAG_ARR);
+    memcpy(&out[ctx], &siz, 4);
+}
 
+static void do_zquery(vector<string>& cmd, Buffer& out){
+    //parse the request.
+    //ZQUERY key score name offset limit returns:
+    //A sorted list of at most limit (score, name) pairs starting from the offset-th element at or after (score, name) in the tree's sorted order.
+    
+
+    //seek/search the given node
+    ZNode* node = zset_search(zset, score, name, len);
+    //go to offset
+
+    
+
+    //iterate limit elements
+    //out them to an array, array length not known so similar to response start end, make array start end function
+    size_t ctx = arr_res_start(out);
+    
+    arr_res_end(out);
+
+}
 
 /////////////////////////////////////////////////
 

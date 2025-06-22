@@ -173,3 +173,10 @@ AVLNode *avl_del(AVLNode *node) {
     *from = victim;
     return root;
 }
+
+
+
+AVLNode *avl_offset(AVLNode *node, int64_t offset){
+
+    
+}
