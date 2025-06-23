@@ -59,6 +59,10 @@ This project is a minimal, high-performance, Redis-like in-memory key-value data
   - Max concurrent connections: 28231
 - These numbers are nothing compared to the real thing which can handle 100-150k ops/sec and <1 ms latency, but I am here to learn not beat a system optimized for a decade.
 - But nevertheless i am happy with these results, and the most fun part for me is to try and improve these numbers
+- HashTable implementation beats both std::map and std::unordered_map on both insert and lookup times.
+- ![Figure_11](https://github.com/user-attachments/assets/53f813e5-9b30-4a8c-86c0-229388fde5b2)
+  - HashTable is 31.3% faster than std::unordered_map for lookups
+  - HashTable is 69.6% faster than std::unordered_map for insertions
 
 
 ## Design and Data Objects
