@@ -4,10 +4,14 @@ This project is a minimal, high-performance, Redis-like in-memory key-value data
 
 ## Features
 
-- Custom hashtable implementation. (STL containers avoided for latency and control)
-- Intrusive data structures for efficient memory usage, high cache performance and fast pointer-based lookup
-- Supports both simple string keys and advanced sorted sets
+- No use of STL containers like map, unordered_map, set.(vectors are used since I tried using a ring buffer but that made it worse)
+- Increased Throughput using pipelining and non-blocking I/O.
+- Supports upto 30k concurrent connections using poll() based syscall event with consistent latency.
+- Custom hashtable implementation for better latency and performance(30-60% performance increase)
+- Use of Intrusive data structures for efficient memory usage, high cache performance and fast pointer-based lookup
+- Supports both simple string keys using HashMap and advanced sorted sets using AVL trees data structure.
 - Clean command interface for interacting via CLI.
+- Use of a simple binary Tag-Value-Length serializer protocol for communications, can support multiple data types like arrays, strings, floats.
 - Manual memory management with malloc/free where required
 
 ## Supported Commands
@@ -45,15 +49,19 @@ This project is a minimal, high-performance, Redis-like in-memory key-value data
   - Starts at the first element ≥ `(score, name)`
   - Applies `offset` and returns up to `limit` elements in sorted order
 
-## Internal Design
+## Performance
+- I tested using a python script with the server running on localhost. I am sure there are better ways and metrics to test.
+- PERFORMANCE TEST SUMMARY
+  - Single-thread SET: 11119.3 ops/sec
+  - Single-thread GET: 10634.7 ops/sec
+  - Best concurrent performance: 9733.5 ops/sec (5 threads)
+  - Latency under load - Avg: 0.99ms, P95: 1.45ms, P99: 2.34ms
+  - Max concurrent connections: 28231
+- These numbers are nothing compared to the real thing which can handle 100-150k ops/sec and <1 ms latency, but I am here to learn not beat a system optimized for a decade.
+- But nevertheless i am happy with these results, and the most fun part for me is to try and improve these numbers
 
-### Custom intrusive HashTable with progressive rehashing.
-- The implementation beats STL map and unordered_map on insert time.
-- ![Figure_1](https://github.com/user-attachments/assets/7dc85f66-6234-41b5-a771-43459ca7d083)
-- But Seems to underperform in lookups for some reason, i might try to improve it.
 
-
-### Data Model
+## Design and Data Objects
 
 - `Entry` objects are stored in a top-level hashtable (`store.db`)
 - Each `Entry` can either store:
@@ -81,14 +89,22 @@ This project is a minimal, high-performance, Redis-like in-memory key-value data
   - Successor/predecessor traversal
   - Custom comparison on `(score, name)`
 
-## Why This Design
-
-- Minimal latency and control over memory layout
-- Understand internals of systems like Redis at a deep level
-- Avoid STL overhead for tight control over allocations, hashing, and pointer layout
-- Serve as a learning tool for intrusive design, tagged unions, and manual memory handling
-
 ## How to Build
-
+- the build process is disorganized now.
+- the client CLI file is client_3 in key_value_server directory.
+- first run the server using cmake or alternatively.
 ```bash
-g++ -std=c++17 -O2 -Wall -o myredis main.cpp
+cd key_value_server
+g++ server_4.cpp hash.cpp helper.h avl.cpp range.cpp -o server_4
+./server_4
+```
+- after running the server on localhost run the client_3.
+- cmake
+```bash
+//in the project root
+mkdir -p build
+cd build
+cmake ..
+make
+./server_4
+
