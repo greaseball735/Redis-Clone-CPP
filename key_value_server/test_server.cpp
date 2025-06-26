@@ -375,9 +375,6 @@ static void do_zquery(vector<string>& cmd, Buffer& out){
         return out_arr(out, 0);
     }
     ZNode *znode = zset_ceil(zset, score, name.data(), name.size());
-    //find first node >= (name, score), comparisions 
-    
-    //go to the offset node
     znode = znode_offset(znode, offset);
 
     // output
@@ -386,7 +383,6 @@ static void do_zquery(vector<string>& cmd, Buffer& out){
     while (znode && n < limit) {
         out_str(out, znode->name, znode->len);
         out_dbl(out, znode->score);
-        //iterate , offset +1
         znode = znode_offset(znode, +1);
         n += 2;
     }
@@ -434,16 +430,22 @@ static void do_zrank(vector<string>& cmd, Buffer& out) {
     if (!zset) {
         return out_err(out, ERR_BAD_TYPE, "expect zset");
     }
-
-    int64_t rank = 0;
-    if (!str2int(cmd[2], rank)) {
-        return out_err(out, ERR_BAD_ARGUMENT, "expected integer");
+    ZNode* znode = zset_lookup(zset, cmd[2].data(), cmd[2].size());
+    if(!znode){
+        return out_err(out, ERR_NOT_FOUND, "not found");
     }
+    // string name = cmd[2];
 
-    AVLNode* root = zset->root;
-    if (!root) {
-        return out_err(out, ERR_NOT_FOUND, "zset is empty");
-    }
+
+    int64_t rank = znode->score;
+    // if (!str2int(cmd[2], rank)) {
+    //     return out_err(out, ERR_BAD_ARGUMENT, "expected integer");
+    // }
+
+    // AVLNode* root = zset->root;
+    // if (!root) {
+        // return out_err(out, ERR_NOT_FOUND, "zset is empty");
+    // }
 
     // Ensure rank is within bounds (0 <= rank < tree size)
     // if (rank < 0 || rank >= zset->tree_size) {
@@ -451,14 +453,15 @@ static void do_zrank(vector<string>& cmd, Buffer& out) {
     // }
 
     // Get the node at the given rank
-    AVLNode* node = avl_offset(root, rank);
-    if (!node) {
-        return out_err(out, ERR_NOT_FOUND, "failed to find node");
-    }
+    // AVLNode* node = avl_offset(root, rank);
+    // if (!node) {
+    //     return out_err(out, ERR_NOT_FOUND, "failed to find node");
+    // }
 
     // Extract the ZNode and return its name
-    ZNode* z = container_of(node, ZNode, tree);
-    return out_str(out, z->name, z->len);
+    // ZNode* z = container_of(node, ZNode, tree);
+    
+    return out_int(out,rank);
 }
 // zrem zset name
 static void do_zrem(std::vector<std::string> &cmd, Buffer &out) {

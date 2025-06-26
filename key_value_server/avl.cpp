@@ -74,6 +74,8 @@ static AVLNode *avl_fix_right(AVLNode *node) {
 }
 
 
+
+
 // // fix imbalanced nodes and maintain invariants until the root is reached
 //inserted or deleted but has to check where the invariant is lost.
 // continue up the tree bottom up
@@ -213,8 +215,13 @@ static AVLNode* predessor(AVLNode* node){
     //find 
 }
 
+
+// AVLNode* avl_rank(AVLNode* node){
+//     if(!node)return ;
+// }
 //the naive way
 AVLNode *avl_offset(AVLNode *node, int64_t offset){
+    // return node of rank , r(node) + offset 
     if (!node) return NULL;
     if (offset == 0) return node;
 

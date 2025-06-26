@@ -235,6 +235,23 @@ ZNode* zset_ceil(ZSet* zset, double score, const char *name, size_t len){
     return found ? container_of(found, ZNode, tree) : NULL;
 }
 
+int64_t zset_rank(ZSet* zset, double score, const char *name, size_t len){
+    int64_t rank = 0;
+    AVLNode *node = zset->root;
+    while(node){
+        uint8_t c = z_comp_2(node, score, len, name);
+        if(c == 1){
+            node = node->right; // node < key
+        }else if(c == 0){
+            node = node->left;
+        }else{
+            return rank;
+        }
+        rank++;
+    }
+    return -1;
+}
+
 ZNode *znode_offset(ZNode *node, int64_t offset) {
     AVLNode *tnode = node ? avl_offset(&node->tree, offset) : NULL;
     return tnode ? container_of(tnode, ZNode, tree) : NULL;

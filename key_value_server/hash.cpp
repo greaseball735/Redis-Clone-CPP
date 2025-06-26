@@ -136,7 +136,7 @@ HNode *hm_lookup(HMAP *hmap, HNode *key, bool (*eq)(HNode *, HNode *)){
 }
 
 // define load factor
-const size_t k_max_load_factor = 8;
+const size_t k_max_load_factor = 1;
 
 void  hm_insert(HMAP *hmap, HNode *node){
     // trigger rehashing if load factor exceeds.
