@@ -218,6 +218,12 @@ static AVLNode* predessor(AVLNode* node){
 }
 
 
+// AVLNode* avl_rank(AVLNode* node){
+//     if(!node)return ;
+// }
+//the naive way
+// offset into the succeeding or preceding node.
+// note: the worst-case is O(log N) regardless of how long the offset is.
 AVLNode *avl_offset(AVLNode *node, int64_t offset) {
     int64_t pos = 0;    // the rank difference from the starting node
     while (offset != pos) {
@@ -245,5 +251,33 @@ AVLNode *avl_offset(AVLNode *node, int64_t offset) {
     }
     return node;
 }
+// AVLNode *avl_offset(AVLNode *node, int64_t offset){
+//     // return node of rank , r(node) + offset 
+//     int64_t pos = 0;
+//     while(pos != offset){
+//         if(pos < offset && pos + avl_cnt(node->right) >= offset){
+//             //irght subtree.
+//             node= node->right;
+//             pos = pos + avl_cnt(node->left) + 1;
+//         }else if(pos > offset && pos + avl_cnt(node->left) <= offset){
+//             node = node->left;
+//             pos = pos - avl_cnt(node->left) - 1;
+//             // pos =
+//         }else{
+//             AVLNode* parent = node->parent;
+//             if(!parent)return NULL;
+//             if(parent->right == node){
+//                 pos -= avl_cnt(node->left) + 1;
+//             }else{
+//                 pos += avl_cnt(node->right) + 1;
+
+//             }
+//             node = parent;
+//         }
+//     }
+
+//     return node;
+
+// }
 
 
