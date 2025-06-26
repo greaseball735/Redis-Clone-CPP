@@ -239,17 +239,23 @@ int64_t zset_rank(ZSet* zset, double score, const char *name, size_t len){
     int64_t rank = 0;
     AVLNode *node = zset->root;
     while(node){
+        
         uint8_t c = z_comp_2(node, score, len, name);
-        if(c == 1){
-            node = node->right; // node < key
-        }else if(c == 0){
+        if(c == 0){
+            // rank = node->cnt;
             node = node->left;
+            // return 
+        }else if(c == 1){
+            int left =  avl_cnt(node->left);
+            rank = 1 + left + rank;
+            node = node->right;
         }else{
-            return rank;
+            rank = rank + avl_cnt(node->left);
+            break;
         }
-        rank++;
     }
-    return -1;
+    
+    return rank;
 }
 
 ZNode *znode_offset(ZNode *node, int64_t offset) {

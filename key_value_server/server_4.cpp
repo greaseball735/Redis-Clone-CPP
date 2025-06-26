@@ -333,7 +333,9 @@ static void arr_res_end(Buffer& out, size_t ctx , uint32_t siz){
     assert(out[ctx - 1] == TAG_ARR);
     memcpy(&out[ctx], &siz, 4);
 }
+
 static const ZSet k_empty_zset;
+
 static ZSet *expect_zset(std::string &s) {
     LookupKey key;
     key.key.swap(s);
@@ -434,31 +436,15 @@ static void do_zrank(vector<string>& cmd, Buffer& out) {
     if (!zset) {
         return out_err(out, ERR_BAD_TYPE, "expect zset");
     }
-
     int64_t rank = 0;
-    if (!str2int(cmd[2], rank)) {
-        return out_err(out, ERR_BAD_ARGUMENT, "expected integer");
+    
+    ZNode* node = zset_lookup(zset, cmd[2].data(), cmd[2].size());
+    if(!node){
+        return out_err(out, ERR_NOT_FOUND, "not found");
     }
 
-    AVLNode* root = zset->root;
-    if (!root) {
-        return out_err(out, ERR_NOT_FOUND, "zset is empty");
-    }
-
-    // Ensure rank is within bounds (0 <= rank < tree size)
-    // if (rank < 0 || rank >= zset->tree_size) {
-    //     return out_err(out, ERR_OUT_OF_RANGE, "rank out of bounds");
-    // }
-
-    // Get the node at the given rank
-    AVLNode* node = avl_offset(root, rank);
-    if (!node) {
-        return out_err(out, ERR_NOT_FOUND, "failed to find node");
-    }
-
-    // Extract the ZNode and return its name
-    ZNode* z = container_of(node, ZNode, tree);
-    return out_str(out, z->name, z->len);
+    rank = zset_rank(zset, node->score, node->name, node->len);
+    return out_int(out, rank);
 }
 // zrem zset name
 static void do_zrem(std::vector<std::string> &cmd, Buffer &out) {

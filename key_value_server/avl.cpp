@@ -12,6 +12,8 @@ static void avl_update(AVLNode *node) {
     node->cnt = 1 + avl_cnt(node->left) + avl_cnt(node->right);
 }
 
+// inline uint32_t avl_cnt(AVLNode *node) { return node ? node->cnt : 0; }
+
 //determine left right heavy and act accordingly what rotation to apply
 
 static AVLNode *rot_left(AVLNode *node) {
@@ -222,20 +224,30 @@ static AVLNode* predessor(AVLNode* node){
 //the naive way
 AVLNode *avl_offset(AVLNode *node, int64_t offset){
     // return node of rank , r(node) + offset 
-    if (!node) return NULL;
-    if (offset == 0) return node;
+    int64_t pos = 0;
+    while(pos != offset){
+        if(pos < offset && pos + avl_cnt(node->right) >= offset){
+            //irght subtree.
+            node= node->right;
+            pos = pos + avl_cnt(node->left) + 1;
+        }else if(pos > offset && pos + avl_cnt(node->left) <= offset){
+            node = node->left;
+            pos = pos - avl_cnt(node->left) - 1;
+            // pos =
+        }else{
+            AVLNode* parent = node->parent;
+            if(!parent)return NULL;
+            if(parent->right == node){
+                pos -= avl_cnt(node->left) + 1;
+            }else{
+                pos += avl_cnt(node->right) + 1;
 
-    while(offset > 0 && node){
-        offset--;
-        node = successor(node);
+            }
+            node = parent;
+        }
     }
 
-    while(offset < 0 && node){
-        offset++;
-        node = predessor(node);
-    }
     return node;
-
 
 }
 
