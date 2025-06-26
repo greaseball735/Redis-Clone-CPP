@@ -6,8 +6,8 @@ This project is a minimal, high-performance, Redis-like in-memory key-value data
 
 - No use of STL containers like map, unordered_map, set.(vectors are used since I tried using a ring buffer but that made it worse)
 - Increased Throughput using pipelining and non-blocking I/O.
-- Supports upto 30k concurrent connections using poll() based syscall event with consistent latency.
-- Custom hashtable implementation for better latency and performance(30-60% performance increase)
+- Uses a basic event loop to support concurrency. Supports upto 30k concurrent connections using poll() based event loop with consistent latency.
+- Custom hashtable implementation for better latency and performance(30-60% performance increase).
 - Use of Intrusive data structures for efficient memory usage, high cache performance and fast pointer-based lookup
 - Supports both simple string keys using HashMap and advanced sorted sets using AVL trees data structure.
 - Clean command interface for interacting via CLI.
@@ -51,19 +51,24 @@ This project is a minimal, high-performance, Redis-like in-memory key-value data
 
 ## Performance
 - I tested using a python script with the server running on localhost. I am sure there are better ways and metrics to test.
+  
 - PERFORMANCE TEST SUMMARY
-  - Single-thread SET: 11119.3 ops/sec
-  - Single-thread GET: 10634.7 ops/sec
-  - Best concurrent performance: 9733.5 ops/sec (5 threads)
-  - Latency under load - Avg: 0.99ms, P95: 1.45ms, P99: 2.34ms
+  - ============================================================
+  - Single-thread SET: 11086.7 ops/sec
+  - Single-thread GET: 12238.5 ops/sec
+  - Single-thread ZADD/ZQUERY: ~15k ops/sec 
+  - Best concurrent performance: 12859.7 ops/sec (5 threads)
+  - Latency under load - Avg: 0.20ms, P95: 0.53ms, P99: 1.22ms
   - Max concurrent connections: 28231
+    
 - These numbers are nothing compared to the real thing which can handle 100-150k ops/sec and <1 ms latency, but I am here to learn not beat a system optimized for a decade.
+- They can be reproduced with the testing scripts in the ./Testing dir of the project
 - But nevertheless i am happy with these results, and the most fun part for me is to try and improve these numbers
 - HashTable implementation beats both std::map and std::unordered_map on both insert and lookup times.
 - ![Figure_11](https://github.com/user-attachments/assets/53f813e5-9b30-4a8c-86c0-229388fde5b2)
   - HashTable is 31.3% faster than std::unordered_map for lookups
   - HashTable is 69.6% faster than std::unordered_map for insertions
-
+- The avl tree implementation again follows intrusive design, with optimization that gives rank of an entry is O(logn) time, in practice this performs slightly worse than the std::set.
 
 ## Design and Data Objects
 
@@ -86,23 +91,31 @@ This project is a minimal, high-performance, Redis-like in-memory key-value data
 - Only one memory allocation per logical object
 - Manual constructor/destructor logic for unions involving `std::string` and custom types
 
-### AVL Tree
+## A WebApp using RAM-DB as DataBase.
+- I also made a small web-app that uses the RAM-DB database to simulate a leaderboard.
+- A leaderboard is a very real place where a redis like database can be used to make operations faster.
+  ```bash
+  npm install
+  cd app/
+  #start the bridge, this basically acts like a serializer for the main backend DB which can only communicate in binary.
+  node bridge.js
+  ```
+- ![Screenshot From 2025-06-26 17-52-18](https://github.com/user-attachments/assets/c15a6c9c-d59a-4df4-82d8-f7cffea04b2a)
 
-- Custom AVL tree implementation supporting:
-  - Balanced insert/delete
-  - Successor/predecessor traversal
-  - Custom comparison on `(score, name)`
+  
+- ![Screenshot From 2025-06-26 17-53-05](https://github.com/user-attachments/assets/7a7dc87d-5218-4e03-9dbd-fced9ecc01ba)
 
+  
+- ![Screenshot From 2025-06-26 17-53-15](https://github.com/user-attachments/assets/c3dcf0c4-4276-430f-b485-41b55ad754a5)
 ## How to Build
 - the build process is disorganized now.
-- the client CLI file is client_3 in key_value_server directory.
+- the client file is client_3 in CLI directory.
 - first run the server using cmake or alternatively.
 ```bash
 cd key_value_server
 g++ server_4.cpp hash.cpp helper.h avl.cpp range.cpp -o server_4
 ./server_4
 ```
-- after running the server on localhost run the client_3.
 - cmake
 ```bash
 //in the project root
@@ -111,4 +124,6 @@ cd build
 cmake ..
 make
 ./server_4
-
+```
+- after running the server on localhost run the client_3.
+- ![Screenshot 2025-06-26 182144](https://github.com/user-attachments/assets/7785f04c-5b2b-4872-8662-ee519e37de5a)
