@@ -1,0 +1,12 @@
+{
+  "name": "gaming-leaderboard-bridge",
+  "version": "1.0.0",
+  "description": "WebSocket bridge for gaming leaderboard database",
+  "main": "bridge.js",
+  "scripts": {
+    "start": "node bridge.js"
+  },
+  "dependencies": {
+    "ws": "^8.13.0"
+  }
+}
